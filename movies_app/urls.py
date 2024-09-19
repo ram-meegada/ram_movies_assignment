@@ -9,5 +9,6 @@ urlpatterns = [
 
     #movies(collection)
     path("movies/", moviesView.MoviesListingView.as_view()),
-    path("collection/", moviesView.CreateCollectionView.as_view())
+    path("collection/", moviesView.ReadWriteCollectionView.as_view()),
+    path("collection/<str:collection_uuid>/", moviesView.FetchUpdateDeleteCollectionView.as_view())
 ]

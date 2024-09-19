@@ -9,7 +9,6 @@ from movies_app.models.baseModel import BaseModel
 class MoviesCollectionModel(BaseModel):
     collection = models.ForeignKey(CollectionModel, on_delete=models.CASCADE, related_name="collections_rn")
     movie = models.ForeignKey(MoviesModel, on_delete=models.CASCADE, related_name="movies_rn")
-    uuid = models.CharField(max_length=255, unique=True)
 
     def __str__(self):
-        return self.uuid
+        return self.collection.title
