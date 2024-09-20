@@ -8,6 +8,10 @@ from movies_app.utils import messages
 
 class OnboardingService:
     def user_registration(self, request):
+        '''
+            Method:- POST
+            Payload:- username(<string>), password(<string>)
+        '''
         try:
             user = User.objects.create(
                 username=request.data["username"],

@@ -16,7 +16,7 @@ CLIENT_SECRET = config('CLIENT_SECRET')
 
 retry_strategy = Retry(
     total=3,
-    backoff_factor=1,      
+    backoff_factor=1,
     status_forcelist=[500, 502, 503, 504],
     allowed_methods=["GET"]
 )
@@ -26,6 +26,9 @@ session.mount("https://", adapter)
 session.mount("http://", adapter)
 
 class MoviesService:
+    '''
+        This class handles all the apis related to collection and movies
+    '''
     def movies_list(self, request):
         '''
             Method:- GET
@@ -39,15 +42,15 @@ class MoviesService:
                 verify=False
                 )
             return {
-                "data": api.json(), 
-                "messsage": messages.MOVIES_LIST, 
+                "data": api.json(),
+                "messsage": messages.MOVIES_LIST,
                 "status": status.HTTP_200_OK
                 }
         except Exception as err:
             return {
-                "error": str(err), 
-                "error_type": str(type(err)), 
-                "messsage": messages.WENT_WRONG, 
+                "error": str(err),
+                "error_type": str(type(err)),
+                "messsage": messages.WENT_WRONG,
                 "status": status.HTTP_400_BAD_REQUEST
                 }
 
@@ -55,7 +58,7 @@ class MoviesService:
     def create_collection(self, request):
         '''
             Method:- POST
-            Payload:- title(<string>), description(<string>), genres(<string>), movies(<list of movie objects>) 
+            Payload:- title(<string>), description(<string>), (<list of movie objects>)
         '''
         try:
             with transaction.atomic():
@@ -69,8 +72,8 @@ class MoviesService:
                     collection_serilizer_obj = collection_serilizer.save(uuid=UUID)
                 else:
                     return {
-                        "serializer_errors": collection_serilizer.errors, 
-                        "message": messages.WENT_WRONG, 
+                        "serializer_errors": collection_serilizer.errors,
+                        "message": messages.WENT_WRONG,
                         "status": status.HTTP_400_BAD_REQUEST
                         }
                 for movie in movies_list:
@@ -90,13 +93,13 @@ class MoviesService:
                     "data": {
                         "collection_uuid": UUID
                         },
-                    "message": messages.COLLECTION_CREATED, 
+                    "message": messages.COLLECTION_CREATED,
                     "status": status.HTTP_201_CREATED
-                    }    
+                    }
         except Exception as err:
-            return {"error": str(err), 
-                    "error_type": str(type(err)), 
-                    "messsage": messages.WENT_WRONG, 
+            return {"error": str(err),
+                    "error_type": str(type(err)),
+                    "messsage": messages.WENT_WRONG,
                     "status": status.HTTP_400_BAD_REQUEST
                     }
 
@@ -107,24 +110,24 @@ class MoviesService:
             Response:- Collection details
         '''
         try:
-            collection = CollectionModel.objects.get(uuid=collection_uuid)
+            collection = CollectionModel.objects.get(uuid=collection_uuid, user_id=request.user.id)
             collection_serializer = moviesSerializer.CollectionWithMoviesReadSerializer(collection)
             return {
-                "data": collection_serializer.data, 
-                "messsage": messages.FETCH_COLLECTION, 
+                "data": collection_serializer.data,
+                "messsage": messages.FETCH_COLLECTION,
                 "status": status.HTTP_200_OK
                 }
         except CollectionModel.DoesNotExist:
             return {
-                "data": None, 
-                "messsage": messages.COLLECTION_NOT_FOUND, 
+                "data": None,
+                "messsage": messages.COLLECTION_NOT_FOUND,
                 "status": status.HTTP_400_BAD_REQUEST
                 }
         except Exception as err:
             return {
-                "error": str(err), 
-                "error_type": str(type(err)), 
-                "messsage": messages.WENT_WRONG, 
+                "error": str(err),
+                "error_type": str(type(err)),
+                "messsage": messages.WENT_WRONG,
                 "status": status.HTTP_400_BAD_REQUEST
                 }
 
@@ -135,24 +138,24 @@ class MoviesService:
             Purpose:- Delete collection based on collection_uuid
         '''
         try:
-            collection = CollectionModel.objects.get(uuid=collection_uuid)
+            collection = CollectionModel.objects.get(uuid=collection_uuid, user_id=request.user.id)
             collection.delete()
             return {
-                "data": None, 
-                "messsage": messages.DELETE_COLLECTION, 
+                "data": None,
+                "messsage": messages.DELETE_COLLECTION,
                 "status": status.HTTP_200_OK
                 }
         except CollectionModel.DoesNotExist:
             return {
-                "data": None, 
-                "messsage": messages.COLLECTION_NOT_FOUND, 
+                "data": None,
+                "messsage": messages.COLLECTION_NOT_FOUND,
                 "status": status.HTTP_400_BAD_REQUEST
                 }
         except Exception as err:
             return {
-                "error": str(err), 
-                "error_type": str(type(err)), 
-                "messsage": messages.WENT_WRONG, 
+                "error": str(err),
+                "error_type": str(type(err)),
+                "messsage": messages.WENT_WRONG,
                 "status": status.HTTP_400_BAD_REQUEST
                 }
 
@@ -160,50 +163,62 @@ class MoviesService:
     def update_collection(self, request, collection_uuid):
         '''
             Method:- PUT
-            Purpose:- This api updates the details of collection 
+            Purpose:- This api updates the details of collection
         '''
         try:
             with transaction.atomic():
-                collection_obj = CollectionModel.objects.get(uuid=collection_uuid)
+                collection_obj = CollectionModel.objects.get(uuid=collection_uuid, user_id=request.user.id)
                 movies_list = request.data.pop("movies")
                 collection_serilizer = moviesSerializer.CreateCollectionSerializer(
                     collection_obj,
-                    data=request.data, 
+                    data=request.data,
                     context={'request': request}
                     )
                 if collection_serilizer.is_valid():
                     collection_serilizer.save()
                 else:
                     return {
-                        "serializer_errors": collection_serilizer.errors, 
-                        "message": messages.WENT_WRONG, 
+                        "serializer_errors": collection_serilizer.errors,
+                        "message": messages.WENT_WRONG,
                         "status": status.HTTP_400_BAD_REQUEST
                         }
-
-                movie_ids = [i["id"] for i in movies_list]
+                # delete movies
+                movie_ids = [i["id"] for i in movies_list if "id" in i]
                 collections_to_delete = MoviesCollectionModel.objects.filter(
                     collection=collection_obj.id
                 ).exclude(collection=collection_obj.id, movie__in=movie_ids)
-                collections_to_delete.delete()
+                if collections_to_delete: collections_to_delete.delete()
 
+                # add movies
+                for i in movies_list:
+                    if "id" not in i:
+                        record_uuid = i.pop("uuid")
+                        movie_obj, created = MoviesModel.objects.get_or_create(
+                            uuid=record_uuid,
+                            defaults=i
+                            )
+                        create_collection = MoviesCollectionModel.objects.create(
+                            collection_id=collection_obj.id,
+                            movie_id=movie_obj.id
+                            )
                 return {
-                    "data": None, 
-                    "messsage": messages.COLLECTION_UPDATED, 
+                    "data": None,
+                    "messsage": messages.COLLECTION_UPDATED,
                     "status": status.HTTP_200_OK
                     }
         except CollectionModel.DoesNotExist:
             return {
-                "data": None, 
-                "messsage": messages.COLLECTION_NOT_FOUND, 
+                "data": None,
+                "messsage": messages.COLLECTION_NOT_FOUND,
                 "status": status.HTTP_400_BAD_REQUEST
                 }
         except Exception as err:
             return {
-                "error": str(err), 
-                "error_type": str(type(err)), 
-                "messsage": messages.WENT_WRONG, 
+                "error": str(err),
+                "error_type": str(type(err)),
+                "messsage": messages.WENT_WRONG,
                 "status": status.HTTP_400_BAD_REQUEST
-                } 
+                }
 
 
     def all_collections(self, request):
@@ -226,8 +241,8 @@ class MoviesService:
                 }
         except Exception as err:
             return {
-                "error": str(err), 
-                "error_type": str(type(err)), 
-                "messsage": messages.WENT_WRONG, 
+                "error": str(err),
+                "error_type": str(type(err)),
+                "messsage": messages.WENT_WRONG,
                 "status": status.HTTP_400_BAD_REQUEST
                 }
