@@ -1,18 +1,19 @@
-from movies_app.models import RequestCounterModel
-from threading import Thread
+from django.core.cache import cache
 
 class RequestCounterMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
+
     def __call__(self, request):
-        Thread(target=increase_count_by_one, args=()).start()
+        cache.get_or_set('request_count', 0)
+        cache.incr('request_count')
         response = self.get_response(request)
         return response
 
-def increase_count_by_one():
-    try:
-        request_count, created = RequestCounterModel.objects.get_or_create()
-        request_count.request_count += 1
-        request_count.save()
-    except Exception as err:
-        print(err, '----err----')
+    @staticmethod
+    def get_request_count():
+        return cache.get_or_set('request_count', 0)
+
+    @staticmethod
+    def reset_request_counter():
+        cache.set('request_count', 0)
